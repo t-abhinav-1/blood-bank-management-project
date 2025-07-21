@@ -62,18 +62,16 @@
 
 // module.exports = { registerController, loginController};
 
-
-
 const userModel = require("../models/userModel");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 
 const registerController = async (req, res) => {
   try {
-    const exisitingUser = await userModel.findOne({ email: req.body.email });
+    const isExisitingUser = await userModel.findOne({ email: req.body.email });
     //validation
-    if (exisitingUser) {
-      return res.status(200).send({
+    if (isExisitingUser) {
+      return res.status(409).send({
         success: false,
         message: "User ALready exists",
       });
@@ -82,7 +80,9 @@ const registerController = async (req, res) => {
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(req.body.password, salt);
     req.body.password = hashedPassword;
+
     //rest data
+    console.log("blood group :", req.body.bloodGroup);
     const user = new userModel(req.body);
     await user.save();
     return res.status(201).send({
@@ -105,31 +105,31 @@ const loginController = async (req, res) => {
   try {
     const user = await userModel.findOne({ email: req.body.email });
     if (!user) {
-      return res.status(404).send({
+      return res.status(401).send({
         success: false,
         message: "Invalid Credentials",
       });
     }
     //compare password
-    const comparePassword = await bcrypt.compare(
-      req.body.password,
-      user.password
-    );
+    const comparePassword = await bcrypt.compare(req.body.password, user.password);
     if (!comparePassword) {
-      return res.status(500).send({
+      return res.status(401).send({
         success: false,
         message: "Invalid Credentials",
       });
     }
+
     //check role
+    // console.log(user?.role, "1");
+    // console.log(req?.body?.role, "2");
     if (user.role !== req.body.role) {
-      return res.status(500).send({
+      return res.status(401).send({
         success: false,
-        message: "role dosent match",
+        message: "role doesn't match",
       });
     }
-    
-    const token = jwt.sign({userId: user._id }, process.env.JWT_SECRET, {
+
+    const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, {
       expiresIn: "1d",
     });
     return res.status(200).send({
